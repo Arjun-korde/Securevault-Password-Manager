@@ -1,0 +1,28 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+
+# CMake
+build/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# MSVC
+x64/
+Win32/
+
+# Qt
+*.qrc.depends
+moc_*.cpp
+ui_*.h
+
+# Logs / runtime artifacts
+*.log
+
+# OS
+Thumbs.db

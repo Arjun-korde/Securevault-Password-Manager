@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/secure.png</file>
+        <file>icons/lock_32.png</file>
+        <file>icons/lock_48.png</file>
+        <file>icons/lock_64.png</file>
+        <file>icons/shield.png</file>
+        <file>images/bgi.jpg</file>
+        <file>images/bgi_1.jpg</file>
+    </qresource>
+</RCC>
