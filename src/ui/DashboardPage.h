@@ -22,6 +22,7 @@ public:
 private:
 	Ui::DashboardPage *m_ui;
 	PasswordRepository m_passwordRepo;
+	QTimer* m_searchDebounceTimer;
 
 private:
 	void setupPasswordTable();
@@ -38,8 +39,9 @@ private slots:
 	void onCopyUsername();
 	void onCopyPassword();
 	void onPasswordUpdate(const PasswordEntry& entry);
-	void onSearchTextChanged(const QString& text);
+	void onSearchTextChanged();
 	void onRefreshPasswordsClicked();
+	void performSearch();
 	
 public slots:
 	void loadPasswords();

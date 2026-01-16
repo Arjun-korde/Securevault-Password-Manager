@@ -14,8 +14,13 @@
 DashboardPage::DashboardPage(QWidget *parent)
 	: QWidget(parent)
 	, m_ui(new Ui::DashboardPage())
+    , m_searchDebounceTimer(new QTimer(this))
 {
 	m_ui->setupUi(this);
+
+    m_searchDebounceTimer->setSingleShot(true);
+    m_searchDebounceTimer->setInterval(250);
+
 	setupPasswordTable();
     setupConnections();
     
@@ -32,6 +37,10 @@ void DashboardPage::setupConnections() const
     connect(m_ui->refreshPasswordListButton, &QPushButton::clicked, this, &DashboardPage::onRefreshPasswordsClicked);
     connect(m_ui->searchLineEdit,&QLineEdit::textChanged, this, &DashboardPage::onSearchTextChanged
     );
+    connect(m_searchDebounceTimer,
+        &QTimer::timeout,
+        this,
+        &DashboardPage::performSearch);
 }
 
 void DashboardPage::setupPasswordTable()
@@ -213,26 +222,14 @@ void DashboardPage::onPasswordUpdate(const PasswordEntry& entry) {
     loadPasswords();
 }
 
-void DashboardPage::onSearchTextChanged(const QString& text)
+void DashboardPage::onSearchTextChanged()
 {
-    const User& user = UserSession::instance().currentUser();
-    const int userId = user.id();
-
-    const auto passwordList = m_passwordRepo.searchPasswords(userId, text.trimmed());
-
-    if (passwordList.isEmpty()) {
-        qDebug() << "No results found!";
-
-        // In future emit signal to display message instead table
-    }
-
-    renderPasswords(passwordList);
+    m_searchDebounceTimer->start();
 }
 
 void DashboardPage::onRefreshPasswordsClicked() 
 {
-    const QString searchText = m_ui->searchLineEdit->text().trimmed();
-    onSearchTextChanged(searchText);
+    onSearchTextChanged();
 }
 
 void DashboardPage::renderPasswords(const QVector<PasswordEntry>& entries) 
@@ -242,4 +239,21 @@ void DashboardPage::renderPasswords(const QVector<PasswordEntry>& entries)
     for (const auto& entry : entries) {
         addPasswordRow(entry);
     }
+}
+
+void DashboardPage::performSearch()
+{
+    const User& user = UserSession::instance().currentUser();
+    const int userId = user.id();
+
+
+    QString searchText = m_ui->searchLineEdit->text();
+    qDebug() << "search requested : " << searchText;
+    if (searchText.isEmpty()) {
+        loadPasswords();
+        return;
+    }
+
+    const auto passwordList = m_passwordRepo.searchPasswords(userId, searchText);
+    renderPasswords(passwordList);
 }
