@@ -14,13 +14,24 @@ void UserSession::setCurrentUser(const User& user)
     qDebug() << "Currently logged in user : id=" << user.id() << " username=" << user.username();
 }
 
-void UserSession::resetCurrentUser()
-{
-    qDebug() << "user logged out : id=" << m_currentUser->id() << " username=" << m_currentUser->username();
-    m_currentUser.reset();
-}
-
 const User& UserSession::currentUser() const
 {
     return m_currentUser.value();
+}
+
+void UserSession::reset()
+{
+    m_encryptionKey.fill(0);
+    m_encryptionKey.clear();
+    m_currentUser.reset();
+}
+
+void UserSession::setEncryptionKey(const QByteArray& key)
+{
+    m_encryptionKey = key;
+}
+
+QByteArray UserSession::encryptionKey() const
+{
+    return m_encryptionKey;
 }

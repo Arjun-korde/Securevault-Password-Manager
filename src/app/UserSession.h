@@ -9,10 +9,12 @@ public:
     static UserSession& instance();
 
     void setCurrentUser(const User& user);
-    void resetCurrentUser();
-
     const User& currentUser() const;
+    void setEncryptionKey(const QByteArray& key);
+    QByteArray encryptionKey() const;
+    void reset();
 
 private:
     std::optional<User> m_currentUser;
+    QByteArray m_encryptionKey;
 };

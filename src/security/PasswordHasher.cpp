@@ -17,15 +17,14 @@ QByteArray PasswordHasher::generateSalt(int lengthBytes)
     return salt;
 }
 
-
-QByteArray PasswordHasher::computeHash(const QByteArray& input, int iterations)
+QByteArray PasswordHasher::computeHash(const QByteArray& input)
 {
     QByteArray hash = QCryptographicHash::hash(
         input,
         QCryptographicHash::Sha256
     );
 
-    for (int i = 1; i < iterations; ++i) {
+    for (int i = 1; i < SecurityConfig::PASSWORD_HASH_ITERATIONS; ++i) {
         hash = QCryptographicHash::hash(
             hash,
             QCryptographicHash::Sha256
@@ -41,13 +40,9 @@ PasswordHasher::hashPassword(const QString& password)
     HashResult result;
     result.salt = generateSalt();
 
-    QByteArray input =
-        password.toUtf8() + result.salt;
+    QByteArray input = password.toUtf8() + result.salt;
 
-    result.hash = computeHash(
-        input,
-        ITERATION_COUNT
-    );
+    result.hash = computeHash(input);
 
     return result;
 }
@@ -61,10 +56,7 @@ bool PasswordHasher::verifyPassword(
     QByteArray input =
         password.toUtf8() + storedSalt;
 
-    QByteArray computedHash = computeHash(
-        input,
-        ITERATION_COUNT
-    );
+    QByteArray computedHash = computeHash(input);
 
     return computedHash == storedHash;
 }

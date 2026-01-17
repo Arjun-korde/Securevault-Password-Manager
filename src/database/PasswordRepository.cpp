@@ -3,19 +3,27 @@
 #include <QDebug>
 
 #include "PasswordRepository.h"
+#include "security/CryptoManager.h"
+#include "app/UserSession.h"
 
 bool PasswordRepository::addPassword(int userId, const PasswordEntry& entry)
 {
+
+    QByteArray key = UserSession::instance().encryptionKey();
+    CryptoManager::EncryptedData encrypted =
+        CryptoManager::encrypt(entry.password().toUtf8(), key);
+
     QSqlQuery query(DatabaseManager::instance().database());
     query.prepare(R"(
-        INSERT INTO passwords (user_id, domain, username, password)
-        VALUES (:user_id, :domain, :username, :password)
+        INSERT INTO passwords (user_id, domain, username, encrypted_password, iv)
+        VALUES (:user_id, :domain, :username, :encrypted_password, :iv)
     )");
 
     query.bindValue(":user_id", userId);
     query.bindValue(":domain", entry.domain());
     query.bindValue(":username", entry.username());
-    query.bindValue(":password", entry.password());
+    query.bindValue(":encrypted_password", encrypted.cipherText);
+    query.bindValue(":iv", encrypted.iv);
 
     if (!query.exec()) {
         qDebug() << "error occured while adding password " << query.lastError();
@@ -29,25 +37,30 @@ std::optional<PasswordEntry> PasswordRepository::fetchById(int passwordId)
 {
     QSqlQuery query(DatabaseManager::instance().database());
     query.prepare(R"(
-        SELECT id, domain, username, password
+        SELECT id, domain, username, encrypted_password, iv
         FROM passwords WHERE id = :passwordId
     )");
     query.bindValue(":passwordId", passwordId);
 
-    if (!query.exec()) {
+    if (!query.exec() || !query.next()) {
         qDebug() << "error occured while fetching the password : " << query.lastError();
         return std::nullopt;
     }
 
-    if (!query.next()) {
-        return std::nullopt;  
-    }
+    QByteArray key = UserSession::instance().encryptionKey();
+
+    QByteArray decrypted =
+        CryptoManager::decrypt(
+            query.value("encrypted_password").toByteArray(),
+            query.value("iv").toByteArray(),
+            key
+        );
 
     return PasswordEntry(
         query.value("id").toInt(),
         query.value("domain").toString(),
         query.value("username").toString(),
-        query.value("password").toString()
+        QString::fromUtf8(decrypted)
     );
 }
 
@@ -67,14 +80,19 @@ bool PasswordRepository::deletePasswordById(int passwordId)
 
 bool PasswordRepository::updatePassword(int userId, const PasswordEntry& entry)
 {
-    QSqlQuery query(DatabaseManager::instance().database());
 
+    QByteArray key = UserSession::instance().encryptionKey();
+    CryptoManager::EncryptedData encrypted =
+        CryptoManager::encrypt(entry.password().toUtf8(), key);
+
+    QSqlQuery query(DatabaseManager::instance().database());
     query.prepare(R"(
         UPDATE passwords
         SET
             domain = :domain,
             username = :username,
-            password = :password,
+            encrypted_password = :encrypted_password,
+            iv = :iv,
             updated_at = CURRENT_TIMESTAMP
         WHERE
             id = :id
@@ -83,7 +101,8 @@ bool PasswordRepository::updatePassword(int userId, const PasswordEntry& entry)
 
     query.bindValue(":domain", entry.domain());
     query.bindValue(":username", entry.username());
-    query.bindValue(":password", entry.password());
+    query.bindValue(":encrypted_password", encrypted.cipherText);
+    query.bindValue(":iv", encrypted.iv);
     query.bindValue(":id", entry.id());
     query.bindValue(":user_id", userId);
 
@@ -160,7 +179,7 @@ QVector<PasswordEntry> PasswordRepository::executeQuery(
     QVector<PasswordEntry> result;
 
     QString sql = R"(
-        SELECT id, domain, username, password
+        SELECT id, domain, username, encrypted_password, iv
         FROM passwords
         WHERE user_id = :user_id
     )";
@@ -186,13 +205,22 @@ QVector<PasswordEntry> PasswordRepository::executeQuery(
         return result;
     }
 
+    QByteArray key = UserSession::instance().encryptionKey();
+
     while (query.next()) {
+        QByteArray decrypted =
+            CryptoManager::decrypt(
+                query.value("encrypted_password").toByteArray(),
+                query.value("iv").toByteArray(),
+                key
+            );
+
         result.append(
             PasswordEntry(
                 query.value("id").toInt(),
                 query.value("domain").toString(),
                 query.value("username").toString(),
-                query.value("password").toString()
+                QString::fromUtf8(decrypted)
             )
         );
     }

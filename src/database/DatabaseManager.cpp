@@ -5,7 +5,7 @@
 #include "DatabaseManager.h"
 
 // constants
-static QString APP_DB_NAME = "securevault_db";
+static QString APP_DB_NAME = "aesdb";
 static QString DB_HOST = "localhost";
 static QString DB_USER = "postgres";
 static QString DB_PASS = "postgres";
@@ -113,6 +113,7 @@ bool DatabaseManager::createTablesIfNotExists()
             username TEXT NOT NULL UNIQUE,
             password_hash BYTEA NOT NULL,
             password_salt BYTEA NOT NULL,
+            encryption_salt BYTEA NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     )";
@@ -134,7 +135,11 @@ bool DatabaseManager::createTablesIfNotExists()
 
             domain TEXT NOT NULL,
             username TEXT NOT NULL,
-            password TEXT NOT NULL,
+
+            encrypted_password BYTEA NOT NULL,
+            iv BYTEA NOT NULL,
+
+            require_master_reprompt BOOLEAN NOT NULL DEFAULT FALSE,
 
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

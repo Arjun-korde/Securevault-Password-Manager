@@ -59,7 +59,7 @@ void MainAppView::showSettings()
 
 void MainAppView::onLogoutClicked()
 {
-	UserSession::instance().resetCurrentUser();
+	UserSession::instance().reset();
 	emit logoutRequested();
 }
 
@@ -76,7 +76,7 @@ void MainAppView::onPasswordSave()
 
 void MainAppView::onDeleteAccount() 
 {
-	UserSession::instance().resetCurrentUser();
+	UserSession::instance().reset();
 	showDashboard();
 	emit logoutRequested();
 }
