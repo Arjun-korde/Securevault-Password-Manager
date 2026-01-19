@@ -25,8 +25,6 @@ void MainAppView::setupPages()
 	m_ui->contentStack->addWidget(m_dashboardPage);
 	m_ui->contentStack->addWidget(m_addPasswordPage);
 	m_ui->contentStack->addWidget(m_settingsPage);
-
-	m_ui->contentStack->setCurrentWidget(m_dashboardPage);
 }
 
 void MainAppView::setupConnections()
@@ -39,6 +37,7 @@ void MainAppView::setupConnections()
 	connect(m_settingsPage, &SettingsPage::logoutRequested, this, &MainAppView::onLogoutClicked);
 	connect(m_settingsPage, &SettingsPage::deleteAccount, this, &MainAppView::onDeleteAccount);
 	connect(m_addPasswordPage, &AddPasswordPage::passwordSaveSuccess, this, &MainAppView::onPasswordSave);
+	connect(m_dashboardPage, &DashboardPage::addPasswordClicked, this, &MainAppView::showAddPassword);
 
 }
 
@@ -65,6 +64,7 @@ void MainAppView::onLogoutClicked()
 
 void MainAppView::onUserLoggedIn() 
 {
+	m_ui->contentStack->setCurrentWidget(m_dashboardPage);
 	m_dashboardPage->loadPasswords();
 }
 

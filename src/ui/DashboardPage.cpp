@@ -19,7 +19,7 @@ DashboardPage::DashboardPage(QWidget *parent)
 	m_ui->setupUi(this);
 
     m_searchDebounceTimer->setSingleShot(true);
-    m_searchDebounceTimer->setInterval(250);
+    m_searchDebounceTimer->setInterval(200);
 
 	setupPasswordTable();
     setupConnections();
@@ -37,10 +37,11 @@ void DashboardPage::setupConnections() const
     connect(m_ui->refreshPasswordListButton, &QPushButton::clicked, this, &DashboardPage::onRefreshPasswordsClicked);
     connect(m_ui->searchLineEdit,&QLineEdit::textChanged, this, &DashboardPage::onSearchTextChanged
     );
-    connect(m_searchDebounceTimer,
-        &QTimer::timeout,
-        this,
+    connect(m_searchDebounceTimer, &QTimer::timeout, this,
         &DashboardPage::performSearch);
+    connect(m_ui->addPasswordButton, &QPushButton::clicked, this, [this]() {
+        emit addPasswordClicked();
+        });
 }
 
 void DashboardPage::setupPasswordTable()

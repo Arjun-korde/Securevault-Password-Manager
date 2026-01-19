@@ -40,6 +40,7 @@ private:
 
 signals:
 	void passwordDeleteSuccess();
+	void addPasswordClicked() const;
 
 private slots:
 	void onEditPassword();
