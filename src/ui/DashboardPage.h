@@ -7,6 +7,13 @@
 #include "app/UserSession.h"
 #include "EditPasswordDialog.h"
 
+//enum ViewState;
+enum ViewState {
+	Passwords,
+	NoResults,
+	Empty
+};
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class DashboardPage; };
 QT_END_NAMESPACE
@@ -29,6 +36,7 @@ private:
 	void addPasswordRow(const PasswordEntry& item);
 	void setupConnections() const;
 	void renderPasswords(const QVector<PasswordEntry>& entries);
+	void setViewState(ViewState state, const QString& searchText = QString());
 
 signals:
 	void passwordDeleteSuccess();

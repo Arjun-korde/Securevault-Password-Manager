@@ -117,11 +117,48 @@ void DashboardPage::addPasswordRow(const PasswordEntry& item)
     m_ui->passwordTable->setCellWidget(row, 3, actionWidget);
 }
 
-void DashboardPage::loadPasswords() {;
-
+void DashboardPage::loadPasswords()
+{
     int userId = UserSession::instance().currentUser().id();
     const auto passwordList = m_passwordRepo.fetchPasswords(userId);
-    
+
+    if (passwordList.isEmpty()) {
+        setViewState(ViewState::Empty);
+        return;
+    }
+
+    renderPasswords(passwordList);
+    setViewState(ViewState::Passwords);
+}
+
+void DashboardPage::renderPasswords(const QVector<PasswordEntry>& entries)
+{
+    m_ui->passwordTable->setRowCount(0);
+
+    for (const auto& entry : entries) {
+        addPasswordRow(entry);
+    }
+}
+
+void DashboardPage::performSearch()
+{
+    const int userId = UserSession::instance().currentUser().id();
+    const QString searchText = m_ui->searchLineEdit->text().trimmed();
+
+    if (searchText.isEmpty()) {
+        loadPasswords();
+        return;
+    }
+
+    const auto passwordList =
+        m_passwordRepo.searchPasswords(userId, searchText);
+
+    if (passwordList.isEmpty()) {
+        setViewState(ViewState::NoResults, searchText);
+        return;
+    }
+
+    setViewState(ViewState::Passwords);
     renderPasswords(passwordList);
 }
 
@@ -232,28 +269,27 @@ void DashboardPage::onRefreshPasswordsClicked()
     onSearchTextChanged();
 }
 
-void DashboardPage::renderPasswords(const QVector<PasswordEntry>& entries) 
+void DashboardPage::setViewState(
+    ViewState state,
+    const QString& searchText
+)
 {
-    m_ui->passwordTable->setRowCount(0);
+    switch (state) {
+    case ViewState::Passwords:
+        m_ui->stackedWidget->setCurrentWidget(m_ui->pagePasswords);
+        break;
 
-    for (const auto& entry : entries) {
-        addPasswordRow(entry);
+    case ViewState::NoResults:
+        //m_ui->noResultsLabel->setAlignment(Qt::AlignCenter);
+        m_ui->noResultsLabel->setText(
+            tr("No results found for \"%1\"").arg(searchText)
+        );
+        m_ui->stackedWidget->setCurrentWidget(m_ui->pageNoResults);
+        break;
+
+    case ViewState::Empty:
+
+        m_ui->stackedWidget->setCurrentWidget(m_ui->pageEmpty);
+        break;
     }
-}
-
-void DashboardPage::performSearch()
-{
-    const User& user = UserSession::instance().currentUser();
-    const int userId = user.id();
-
-
-    QString searchText = m_ui->searchLineEdit->text();
-    qDebug() << "search requested : " << searchText;
-    if (searchText.isEmpty()) {
-        loadPasswords();
-        return;
-    }
-
-    const auto passwordList = m_passwordRepo.searchPasswords(userId, searchText);
-    renderPasswords(passwordList);
 }
