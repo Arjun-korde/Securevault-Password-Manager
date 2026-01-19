@@ -1,4 +1,5 @@
 #include "CryptoManager.h"
+#include "CryptoUtils.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -29,23 +30,32 @@ QByteArray CryptoManager::generateRandomBytes(int size)
 CryptoManager::EncryptedData
 CryptoManager::encrypt(const QByteArray& plainText, const QByteArray& key)
 {
+
+    EncryptedData result;
+
+    if (plainText.isEmpty()) {
+        return result;
+    }
+
     BCRYPT_ALG_HANDLE hAlg = nullptr;
     BCRYPT_KEY_HANDLE hKey = nullptr;
 
-    DWORD cbData = 0;
-    DWORD cbCipher = 0;
+    NTSTATUS status;
 
-    EncryptedData result;
-    result.iv = generateRandomBytes(AES_BLOCK_SIZE);
+    result.iv = CryptoUtils::generateRandomBytes(AES_BLOCK_SIZE);
 
-    BCryptOpenAlgorithmProvider(
+    status = BCryptOpenAlgorithmProvider(
         &hAlg,
         BCRYPT_AES_ALGORITHM,
         nullptr,
         0
     );
 
-    BCryptSetProperty(
+    if (!NT_SUCCESS(status)) {
+        return {};
+    }
+
+    status = BCryptSetProperty(
         hAlg,
         BCRYPT_CHAINING_MODE,
         (PUCHAR)BCRYPT_CHAIN_MODE_CBC,
@@ -53,7 +63,12 @@ CryptoManager::encrypt(const QByteArray& plainText, const QByteArray& key)
         0
     );
 
-    BCryptGenerateSymmetricKey(
+    if (!NT_SUCCESS(status)) {
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
+
+    status = BCryptGenerateSymmetricKey(
         hAlg,
         &hKey,
         nullptr,
@@ -63,8 +78,15 @@ CryptoManager::encrypt(const QByteArray& plainText, const QByteArray& key)
         0
     );
 
+    if (!NT_SUCCESS(status)) {
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
+
+    DWORD cipherSize = 0;
+
     // Get output size
-    BCryptEncrypt(
+    status = BCryptEncrypt(
         hKey,
         (PUCHAR)plainText.data(),
         plainText.size(),
@@ -73,26 +95,42 @@ CryptoManager::encrypt(const QByteArray& plainText, const QByteArray& key)
         result.iv.size(),
         nullptr,
         0,
-        &cbCipher,
+        &cipherSize,
         BCRYPT_BLOCK_PADDING
     );
 
-    result.cipherText.resize(cbCipher);
+    if (!NT_SUCCESS(status) || cipherSize == 0) {
+        BCryptDestroyKey(hKey);
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
 
-    QByteArray iv = result.iv;
+    result.cipherText.resize(cipherSize);
 
-    BCryptEncrypt(
+    QByteArray ivCopy = result.iv;
+
+    status = BCryptEncrypt(
         hKey,
-        (PUCHAR)plainText.data(),
-        plainText.size(),
+        reinterpret_cast<PUCHAR>(
+            const_cast<char*>(plainText.data())
+            ),
+        static_cast<ULONG>(plainText.size()),
         nullptr,
-        (PUCHAR)iv.data(),
-        result.iv.size(),
-        (PUCHAR)result.cipherText.data(),
-        cbCipher,
-        &cbCipher,
+        reinterpret_cast<PUCHAR>(ivCopy.data()),
+        static_cast<ULONG>(ivCopy.size()),
+        reinterpret_cast<PUCHAR>(result.cipherText.data()),
+        cipherSize,
+        &cipherSize,
         BCRYPT_BLOCK_PADDING
     );
+
+    if (!NT_SUCCESS(status)) {
+        BCryptDestroyKey(hKey);
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
+
+    result.cipherText.resize(cipherSize);
 
     BCryptDestroyKey(hKey);
     BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -106,66 +144,111 @@ QByteArray CryptoManager::decrypt(
     const QByteArray& key
 )
 {
+
+    if (cipherText.isEmpty()) {
+        return {};
+    }
+
     BCRYPT_ALG_HANDLE hAlg = nullptr;
     BCRYPT_KEY_HANDLE hKey = nullptr;
 
-    DWORD cbPlain = 0;
-    QByteArray plainText;
+    NTSTATUS status;
 
-    BCryptOpenAlgorithmProvider(
+    status = BCryptOpenAlgorithmProvider(
         &hAlg,
         BCRYPT_AES_ALGORITHM,
         nullptr,
         0
     );
 
-    BCryptSetProperty(
+    if (!NT_SUCCESS(status)) {
+        return {};
+    }
+
+    status = BCryptSetProperty(
         hAlg,
         BCRYPT_CHAINING_MODE,
-        (PUCHAR)BCRYPT_CHAIN_MODE_CBC,
+        reinterpret_cast<PUCHAR>(
+            const_cast<wchar_t*>(BCRYPT_CHAIN_MODE_CBC)
+            ),
         sizeof(BCRYPT_CHAIN_MODE_CBC),
         0
     );
 
-    BCryptGenerateSymmetricKey(
+    if (!NT_SUCCESS(status)) {
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
+
+    status = BCryptGenerateSymmetricKey(
         hAlg,
         &hKey,
         nullptr,
         0,
-        (PUCHAR)key.data(),
-        AES_KEY_SIZE,
+        reinterpret_cast<PUCHAR>(
+            const_cast<char*>(key.data())
+            ),
+        static_cast<ULONG>(key.size()),
         0
     );
 
-    BCryptDecrypt(
+    if (!NT_SUCCESS(status)) {
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
+
+    DWORD plainSize = 0;
+
+    status = BCryptDecrypt(
         hKey,
-        (PUCHAR)cipherText.data(),
-        cipherText.size(),
+        reinterpret_cast<PUCHAR>(
+            const_cast<char*>(cipherText.data())
+            ),
+        static_cast<ULONG>(cipherText.size()),
         nullptr,
-        (PUCHAR)iv.data(),
-        iv.size(),
+        reinterpret_cast<PUCHAR>(
+            const_cast<char*>(iv.data())
+            ),
+        static_cast<ULONG>(iv.size()),
         nullptr,
         0,
-        &cbPlain,
+        &plainSize,
         BCRYPT_BLOCK_PADDING
     );
 
-    plainText.resize(cbPlain);
+    if (!NT_SUCCESS(status) || plainSize == 0) {
+        BCryptDestroyKey(hKey);
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
 
-    BCryptDecrypt(
+    QByteArray plainText;
+    plainText.resize(plainSize);
+
+    QByteArray ivCopy = iv;
+
+    status = BCryptDecrypt(
         hKey,
-        (PUCHAR)cipherText.data(),
-        cipherText.size(),
+        reinterpret_cast<PUCHAR>(
+            const_cast<char*>(cipherText.data())
+            ),
+        static_cast<ULONG>(cipherText.size()),
         nullptr,
-        (PUCHAR)iv.data(),
-        iv.size(),
-        (PUCHAR)plainText.data(),
-        cbPlain,
-        &cbPlain,
+        reinterpret_cast<PUCHAR>(ivCopy.data()),
+        static_cast<ULONG>(ivCopy.size()),
+        reinterpret_cast<PUCHAR>(plainText.data()),
+        plainSize,
+        &plainSize,
         BCRYPT_BLOCK_PADDING
     );
 
-    plainText.resize(cbPlain);
+    if (!NT_SUCCESS(status)) {
+        BCryptDestroyKey(hKey);
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return {};
+    }
+
+    plainText.resize(plainSize);
 
     BCryptDestroyKey(hKey);
     BCryptCloseAlgorithmProvider(hAlg, 0);

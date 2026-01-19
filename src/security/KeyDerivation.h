@@ -30,6 +30,4 @@ public:
         const QByteArray& encryptionSalt
     );
 
-private:
-    static QByteArray computeHash(const QByteArray& input);
 };

@@ -1,40 +1,13 @@
 #include "KeyDerivation.h"
 #include "SecurityConfig.h"
+#include "CryptoUtils.h"
 
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 
 QByteArray KeyDerivation::generateEncryptionSalt()
 {
-    QByteArray salt(
-        SecurityConfig::ENCRYPTION_SALT_SIZE_BYTES,
-        Qt::Uninitialized
-    );
-
-    QRandomGenerator* rng = QRandomGenerator::system();
-
-    for (int i = 0; i < SecurityConfig::ENCRYPTION_SALT_SIZE_BYTES; ++i) {
-        salt[i] = static_cast<char>(rng->generate() & 0xFF);
-    }
-
-    return salt;
-}
-
-QByteArray KeyDerivation::computeHash(const QByteArray& input)
-{
-    QByteArray hash = QCryptographicHash::hash(
-        input,
-        QCryptographicHash::Sha256
-    );
-
-    for (int i = 1; i < SecurityConfig::KEY_DERIVATION_ITERATIONS; ++i) {
-        hash = QCryptographicHash::hash(
-            hash,
-            QCryptographicHash::Sha256
-        );
-    }
-
-    return hash;
+    return CryptoUtils::generateRandomBytes(SecurityConfig::ENCRYPTION_SALT_SIZE_BYTES);
 }
 
 QByteArray KeyDerivation::deriveEncryptionKey(
@@ -42,11 +15,18 @@ QByteArray KeyDerivation::deriveEncryptionKey(
     const QByteArray& encryptionSalt
 )
 {
-    QByteArray input =
-        masterPassword.toUtf8() + encryptionSalt;
+    if (masterPassword.isEmpty() || encryptionSalt.isEmpty()) {
+        return {};
+    }
 
-    QByteArray derived = computeHash(input);
+    QByteArray passwordBytes = masterPassword.toUtf8();
 
-    // SHA-256 already gives 32 bytes, but we enforce size explicitly
-    return derived.left(SecurityConfig::AES_KEY_SIZE_BYTES);
+    QByteArray derivedKey = CryptoUtils::pbkdf2Sha256(
+        passwordBytes,
+        encryptionSalt,
+        SecurityConfig::KEY_DERIVATION_ITERATIONS,
+        SecurityConfig::AES_KEY_SIZE_BYTES
+    );
+
+    return derivedKey;
 }
