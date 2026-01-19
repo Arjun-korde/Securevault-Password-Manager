@@ -2,6 +2,7 @@
 #include <QRandomGenerator>
 
 #include "PasswordHasher.h"
+#include "CryptoUtils.h"
 
 QByteArray PasswordHasher::generateSalt(int lengthBytes)
 {
@@ -38,11 +39,28 @@ PasswordHasher:: HashResult
 PasswordHasher::hashPassword(const QString& password)
 {
     HashResult result;
-    result.salt = generateSalt();
+    if (password.isEmpty()) {
+        return {};
+    }
 
-    QByteArray input = password.toUtf8() + result.salt;
+    result.salt = CryptoUtils::generateRandomBytes(SecurityConfig::PASSWORD_SALT_SIZE_BYTES);
 
-    result.hash = computeHash(input);
+    if (result.salt.isEmpty()) {
+        return {};
+    }
+
+    QByteArray passwordBytes = password.toUtf8();
+
+    result.hash = CryptoUtils::pbkdf2Sha256(
+        passwordBytes,
+        result.salt,
+        SecurityConfig::PASSWORD_HASH_ITERATIONS,
+        SecurityConfig::PASSWORD_HASH_SIZE_BYTES
+    );
+
+    if (result.hash.isEmpty()) {
+        return {};
+    }
 
     return result;
 }
@@ -53,10 +71,14 @@ bool PasswordHasher::verifyPassword(
     const QByteArray& storedSalt
 )
 {
-    QByteArray input =
-        password.toUtf8() + storedSalt;
+    QByteArray passwordBytes = password.toUtf8();
 
-    QByteArray computedHash = computeHash(input);
+    QByteArray computedHash = CryptoUtils::pbkdf2Sha256(
+        passwordBytes,
+        storedSalt,
+        SecurityConfig::PASSWORD_HASH_ITERATIONS,
+        SecurityConfig::PASSWORD_HASH_SIZE_BYTES
+    );
 
     return computedHash == storedHash;
 }
