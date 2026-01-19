@@ -26,6 +26,3 @@ ui_*.h
 
 # OS
 Thumbs.db
-
-# security
-src/security/SecurityConfig.h
