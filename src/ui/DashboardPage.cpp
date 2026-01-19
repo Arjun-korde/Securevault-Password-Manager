@@ -281,7 +281,6 @@ void DashboardPage::setViewState(
         break;
 
     case ViewState::NoResults:
-        //m_ui->noResultsLabel->setAlignment(Qt::AlignCenter);
         m_ui->noResultsLabel->setText(
             tr("No results found for \"%1\"").arg(searchText)
         );
