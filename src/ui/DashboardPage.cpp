@@ -42,6 +42,9 @@ void DashboardPage::setupConnections() const
     connect(m_ui->addPasswordButton, &QPushButton::clicked, this, [this]() {
         emit addPasswordClicked();
         });
+    connect(m_ui->addPasswordButton_2, &QPushButton::clicked, this, [this]() {
+        emit addPasswordClicked();
+        });
 }
 
 void DashboardPage::setupPasswordTable()
@@ -292,4 +295,9 @@ void DashboardPage::setViewState(
         m_ui->stackedWidget->setCurrentWidget(m_ui->pageEmpty);
         break;
     }
+}
+
+void DashboardPage::clearSearchText()
+{
+    m_ui->searchLineEdit->clear();
 }

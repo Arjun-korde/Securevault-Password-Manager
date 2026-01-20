@@ -25,6 +25,13 @@ void MainAppView::setupPages()
 	m_ui->contentStack->addWidget(m_dashboardPage);
 	m_ui->contentStack->addWidget(m_addPasswordPage);
 	m_ui->contentStack->addWidget(m_settingsPage);
+	m_ui->dashboardButton->setCheckable(true);
+	m_ui->settingsButton->setCheckable(true);
+	m_ui->addPasswordButton->setCheckable(true);
+
+	m_ui->dashboardButton->setAutoExclusive(true);
+	m_ui->settingsButton->setAutoExclusive(true);
+	m_ui->addPasswordButton->setAutoExclusive(true);
 }
 
 void MainAppView::setupConnections()
@@ -44,16 +51,19 @@ void MainAppView::setupConnections()
 void MainAppView::showDashboard()
 {
 	m_ui->contentStack->setCurrentWidget(m_dashboardPage);
+	m_ui->dashboardButton->setChecked(true);
 }
 
 void MainAppView::showAddPassword()
 {
 	m_ui->contentStack->setCurrentWidget(m_addPasswordPage);
+	m_ui->addPasswordButton->setChecked(true);
 }
 
 void MainAppView::showSettings()
 {
 	m_ui->contentStack->setCurrentWidget(m_settingsPage);
+	m_ui->settingsButton->setChecked(true);
 }
 
 void MainAppView::onLogoutClicked()
@@ -64,7 +74,8 @@ void MainAppView::onLogoutClicked()
 
 void MainAppView::onUserLoggedIn() 
 {
-	m_ui->contentStack->setCurrentWidget(m_dashboardPage);
+	showDashboard();
+	m_dashboardPage->clearSearchText();
 	m_dashboardPage->loadPasswords();
 }
 
@@ -77,6 +88,5 @@ void MainAppView::onPasswordSave()
 void MainAppView::onDeleteAccount() 
 {
 	UserSession::instance().reset();
-	showDashboard();
 	emit logoutRequested();
 }

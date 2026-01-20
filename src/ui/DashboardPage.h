@@ -54,5 +54,8 @@ private slots:
 	
 public slots:
 	void loadPasswords();
+
+public:
+	void clearSearchText();
 };
 
