@@ -1,17 +1,22 @@
 #pragma once
 
 #include <QWidget>
+#include <QHash>
 
 #include "ui_DashboardPage.h"
 #include "database/PasswordRepository.h"
 #include "app/UserSession.h"
 #include "EditPasswordDialog.h"
 
-//enum ViewState;
 enum ViewState {
 	Passwords,
 	NoResults,
 	Empty
+};
+
+struct ButtonMappings {
+	QPushButton* button;
+	int passwordId;
 };
 
 QT_BEGIN_NAMESPACE
@@ -30,6 +35,7 @@ private:
 	Ui::DashboardPage *m_ui;
 	PasswordRepository m_passwordRepo;
 	QTimer* m_searchDebounceTimer;
+	QHash<QPushButton*, int> m_buttonToPasswordId;
 
 private:
 	void setupPasswordTable();
@@ -37,6 +43,7 @@ private:
 	void setupConnections() const;
 	void renderPasswords(const QVector<PasswordEntry>& entries);
 	void setViewState(ViewState state, const QString& searchText = QString());
+	std::optional<ButtonMappings> resolvePasswordIdFromSender() const;
 
 signals:
 	void passwordDeleteSuccess();
