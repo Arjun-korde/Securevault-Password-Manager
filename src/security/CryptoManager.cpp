@@ -1,5 +1,6 @@
 #include "CryptoManager.h"
 #include "CryptoUtils.h"
+#include "SecurityConfig.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -8,24 +9,6 @@
 
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 
-namespace {
-    constexpr int AES_KEY_SIZE = 32;
-    constexpr int AES_BLOCK_SIZE = 16;
-}
-
-QByteArray CryptoManager::generateRandomBytes(int size)
-{
-    QByteArray buffer(size, Qt::Uninitialized);
-
-    BCryptGenRandom(
-        nullptr,
-        reinterpret_cast<PUCHAR>(buffer.data()),
-        size,
-        BCRYPT_USE_SYSTEM_PREFERRED_RNG
-    );
-
-    return buffer;
-}
 
 CryptoManager::EncryptedData
 CryptoManager::encrypt(const QByteArray& plainText, const QByteArray& key)
@@ -42,7 +25,7 @@ CryptoManager::encrypt(const QByteArray& plainText, const QByteArray& key)
 
     NTSTATUS status;
 
-    result.iv = CryptoUtils::generateRandomBytes(AES_BLOCK_SIZE);
+    result.iv = CryptoUtils::generateRandomBytes(SecurityConfig::AES_BLOCK_SIZE_BYTES);
 
     status = BCryptOpenAlgorithmProvider(
         &hAlg,
@@ -74,7 +57,7 @@ CryptoManager::encrypt(const QByteArray& plainText, const QByteArray& key)
         nullptr,
         0,
         (PUCHAR)key.data(),
-        AES_KEY_SIZE,
+        SecurityConfig::AES_KEY_SIZE_BYTES,
         0
     );
 
