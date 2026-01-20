@@ -128,30 +128,34 @@ std::optional<PasswordEntry> PasswordRepository::findByDomain(int userId, const 
     QSqlQuery query(DatabaseManager::instance().database());
 
     query.prepare(R"(
-        SELECT id, domain, username, password
+        SELECT id, domain, username, encrypted_password, iv
         FROM passwords
         WHERE user_id = :user_id
           AND domain = :domain
+        ORDER BY created_at DESC
+        LIMIT 1
     )");
 
     query.bindValue(":user_id", userId);
     query.bindValue(":domain", domain);
 
-    if (!query.exec()) {
-        qDebug() << "error occurred while finding password by domain:"
-            << query.lastError().text();
+    if(!query.exec() || !query.next()) {
         return std::nullopt;
     }
 
-    if (!query.next()) {
-        return std::nullopt;
-    }
+    QByteArray key = UserSession::instance().encryptionKey();
+
+    QByteArray decrypted = CryptoManager::decrypt(
+        query.value("encrypted_password").toByteArray(),
+        query.value("iv").toByteArray(),
+        key
+    );
 
     return PasswordEntry(
         query.value("id").toInt(),
         query.value("domain").toString(),
         query.value("username").toString(),
-        query.value("password").toString()
+        QString::fromUtf8(decrypted)
     );
 }
 
