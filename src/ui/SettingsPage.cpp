@@ -50,16 +50,21 @@ void SettingsPage::onDeleteAccount()
 		return;
 	}
 
-	const User& user = UserSession::instance().currentUser();
+	auto user = UserSession::instance().currentUser();
+
+	if (!user.has_value()) {
+		return;
+	}
+
 	UserRepository userRepo;
-	bool isDeleted = userRepo.deleteAccount(user.id(), password);
+	bool isDeleted = userRepo.deleteAccount(user->id(), password);
 
 	if (!isDeleted) {
 		QMessageBox::warning(this, "Error", "Invalid Passoword");
 		return;
 	}
 
-	qDebug() << "Account deleted Successfully " << user.username();
+	qDebug() << "Account deleted Successfully " << user->username();
 
 	emit deleteAccount();
 

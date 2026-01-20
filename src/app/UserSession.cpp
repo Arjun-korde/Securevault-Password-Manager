@@ -14,9 +14,9 @@ void UserSession::setCurrentUser(const User& user)
     qDebug() << "Currently logged in user : id=" << user.id() << " username=" << user.username();
 }
 
-const User& UserSession::currentUser() const
+std::optional<User> UserSession::currentUser() const
 {
-    return m_currentUser.value();
+    return m_currentUser;
 }
 
 void UserSession::reset()

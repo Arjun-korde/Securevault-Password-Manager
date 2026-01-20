@@ -119,7 +119,13 @@ void DashboardPage::addPasswordRow(const PasswordEntry& item)
 
 void DashboardPage::loadPasswords()
 {
-    int userId = UserSession::instance().currentUser().id();
+    auto user = UserSession::instance().currentUser();
+
+    if (!user.has_value()) {
+        return;
+    }
+
+    int userId = user->id();
     const auto passwordList = m_passwordRepo.fetchPasswords(userId);
 
     if (passwordList.isEmpty()) {
@@ -143,7 +149,13 @@ void DashboardPage::renderPasswords(const QVector<PasswordEntry>& entries)
 
 void DashboardPage::performSearch()
 {
-    const int userId = UserSession::instance().currentUser().id();
+    auto user = UserSession::instance().currentUser();
+
+    if (!user.has_value()) {
+        return;
+    }
+
+    int userId = user->id();
     const QString searchText = m_ui->searchLineEdit->text().trimmed();
 
     if (searchText.isEmpty()) {
@@ -165,7 +177,13 @@ void DashboardPage::performSearch()
 
 void DashboardPage::onPasswordUpdate(const PasswordEntry& entry) {
 
-    int userId = UserSession::instance().currentUser().id();
+    auto user = UserSession::instance().currentUser();
+
+    if (!user.has_value()) {
+        return;
+    }
+    
+    int userId = user->id();
 
     bool isUpdated = m_passwordRepo.updatePassword(userId, entry);
 
@@ -313,3 +331,4 @@ void DashboardPage::onCopyUsername()
 
     QGuiApplication::clipboard()->setText(entry->username());
 }
+  
