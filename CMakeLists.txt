@@ -48,3 +48,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt::Widgets
         Qt::Sql
 )
+
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dwmapi)
+endif()

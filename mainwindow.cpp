@@ -3,6 +3,11 @@
 
 #include "mainwindow.h"
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+#endif
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
     m_ui(new Ui::MainWindow),
@@ -15,6 +20,23 @@ MainWindow::MainWindow(QWidget* parent)
 
     setupPages();
     setupConnections();
+    applyTitleBarTheme();
+}
+
+void MainWindow::applyTitleBarTheme()
+{
+#ifdef Q_OS_WIN
+    // Match the native title bar to the window background (#111827).
+    // Caption/border/text colour attributes need Windows 11; ignored elsewhere.
+    const HWND hwnd = reinterpret_cast<HWND>(winId());
+    const BOOL dark = TRUE;
+    const COLORREF caption = RGB(0x11, 0x18, 0x27);
+    const COLORREF text = RGB(0xFF, 0xFF, 0xFF);
+    DwmSetWindowAttribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &dark, sizeof(dark));
+    DwmSetWindowAttribute(hwnd, 35 /*DWMWA_CAPTION_COLOR*/, &caption, sizeof(caption));
+    DwmSetWindowAttribute(hwnd, 34 /*DWMWA_BORDER_COLOR*/, &caption, sizeof(caption));
+    DwmSetWindowAttribute(hwnd, 36 /*DWMWA_TEXT_COLOR*/, &text, sizeof(text));
+#endif
 }
 
 MainWindow::~MainWindow()

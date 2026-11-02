@@ -29,4 +29,5 @@ private:
 
     void setupPages();
     void setupConnections();
+    void applyTitleBarTheme();
 };
