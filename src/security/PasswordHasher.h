@@ -21,8 +21,4 @@ public:
         const QByteArray& storedSalt
     );
 
-private:
-    static QByteArray generateSalt(int lengthBytes = 16);
-    static QByteArray computeHash(const QByteArray& input);
-
 };

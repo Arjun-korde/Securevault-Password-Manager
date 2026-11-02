@@ -8,56 +8,58 @@
 #include <QClipboard>
 #include <QTimer>
 #include <QMessageBox>
+#include <QPointer>
 
 #include "DashboardPage.h"
 
-DashboardPage::DashboardPage(QWidget *parent)
-	: QWidget(parent)
-	, m_ui(new Ui::DashboardPage())
+DashboardPage::DashboardPage(QWidget* parent)
+    : QWidget(parent)
+    , m_ui(new Ui::DashboardPage())
     , m_searchDebounceTimer(new QTimer(this))
 {
-	m_ui->setupUi(this);
+    m_ui->setupUi(this);
 
     m_searchDebounceTimer->setSingleShot(true);
-    m_searchDebounceTimer->setInterval(250);
+    m_searchDebounceTimer->setInterval(200);
 
-	setupPasswordTable();
+    setupPasswordTable();
     setupConnections();
-    
+
 }
 
 DashboardPage::~DashboardPage()
 {
-	delete m_ui;
+    delete m_ui;
 }
 
 void DashboardPage::setupConnections() const
 {
     connect(this, &DashboardPage::passwordDeleteSuccess, this, &DashboardPage::loadPasswords);
     connect(m_ui->refreshPasswordListButton, &QPushButton::clicked, this, &DashboardPage::onRefreshPasswordsClicked);
-    connect(m_ui->searchLineEdit,&QLineEdit::textChanged, this, &DashboardPage::onSearchTextChanged
+    connect(m_ui->searchLineEdit, &QLineEdit::textChanged, this, &DashboardPage::onSearchTextChanged
     );
-    connect(m_searchDebounceTimer,
-        &QTimer::timeout,
-        this,
+    connect(m_searchDebounceTimer, &QTimer::timeout, this,
         &DashboardPage::performSearch);
+    connect(m_ui->addPasswordButton, &QPushButton::clicked, this, [this]() {
+        emit addPasswordClicked();
+        });
+    connect(m_ui->addPasswordButton_2, &QPushButton::clicked, this, [this]() {
+        emit addPasswordClicked();
+        });
 }
 
 void DashboardPage::setupPasswordTable()
 {
-    m_ui->passwordTable->setColumnCount(4);
+    m_ui->passwordTable->setColumnCount(3);
     m_ui->passwordTable->setHorizontalHeaderLabels(
-        { "ID", "Domain", "Username", "Actions" });
+        {"Domain", "Username", "Actions" });
 
-    // hide ID column
-    m_ui->passwordTable->setColumnHidden(0, true);
+    QHeaderView* header = m_ui->passwordTable->horizontalHeader();
+    header->setSectionResizeMode(0, QHeaderView::Stretch); // Domain
+    header->setSectionResizeMode(1, QHeaderView::Stretch); // Username
+    header->setSectionResizeMode(2, QHeaderView::Fixed);   // Actions
 
-    auto* header = m_ui->passwordTable->horizontalHeader();
-    header->setSectionResizeMode(1, QHeaderView::Stretch); // Domain
-    header->setSectionResizeMode(2, QHeaderView::Stretch); // Username
-    header->setSectionResizeMode(3, QHeaderView::Fixed);   // Actions
-
-    m_ui->passwordTable->setColumnWidth(3, 350);
+    m_ui->passwordTable->setColumnWidth(2, 350);
 
     // align header to the left
     m_ui->passwordTable->horizontalHeader()->setDefaultAlignment(
@@ -71,10 +73,9 @@ void DashboardPage::addPasswordRow(const PasswordEntry& item)
     const int row = m_ui->passwordTable->rowCount();
     m_ui->passwordTable->insertRow(row);
 
-    // data rows
-    m_ui->passwordTable->setItem(row, 0, new QTableWidgetItem(QString::number(item.id())));
-    m_ui->passwordTable->setItem(row, 1, new QTableWidgetItem(item.domain()));
-    m_ui->passwordTable->setItem(row, 2, new QTableWidgetItem(item.username()));
+    // fill data in row
+    m_ui->passwordTable->setItem(row, 0, new QTableWidgetItem(item.domain()));
+    m_ui->passwordTable->setItem(row, 1, new QTableWidgetItem(item.username()));
 
     // create action button layout
     QWidget* actionWidget = new QWidget(m_ui->passwordTable);
@@ -95,11 +96,10 @@ void DashboardPage::addPasswordRow(const PasswordEntry& item)
     copyUserBtn->setFixedWidth(85);
     copyPassBtn->setFixedWidth(85);
 
-    // add new property to the buttons
+    // create (Button, passwordId) Mappings
     for (auto btn : { editBtn, deleteBtn, copyUserBtn, copyPassBtn }) {
-        btn->setProperty("passwordId", item.id());
-        btn->setProperty("username", item.username());
         btn->setCursor(Qt::PointingHandCursor);
+        m_buttonToPasswordId.insert(btn, item.id());
     }
 
     connect(editBtn, &QPushButton::clicked, this, &DashboardPage::onEditPassword);
@@ -114,103 +114,76 @@ void DashboardPage::addPasswordRow(const PasswordEntry& item)
     layout->addWidget(copyPassBtn);
 
     actionWidget->setLayout(layout);
-    m_ui->passwordTable->setCellWidget(row, 3, actionWidget);
+    m_ui->passwordTable->setCellWidget(row, 2, actionWidget);
 }
 
-void DashboardPage::loadPasswords() {;
+void DashboardPage::loadPasswords()
+{
+    auto user = UserSession::instance().currentUser();
 
-    int userId = UserSession::instance().currentUser().id();
+    if (!user.has_value()) {
+        return;
+    }
+
+    int userId = user->id();
     const auto passwordList = m_passwordRepo.fetchPasswords(userId);
-    
+
+    if (passwordList.isEmpty()) {
+        setViewState(ViewState::Empty);
+        return;
+    }
+
     renderPasswords(passwordList);
+    setViewState(ViewState::Passwords);
 }
 
-void DashboardPage::onCopyUsername()
+void DashboardPage::renderPasswords(const QVector<PasswordEntry>& entries)
 {
-    auto* btn = qobject_cast<QPushButton*>(sender());
-    if (!btn)
-        return;
+    m_buttonToPasswordId.clear();
+    m_ui->passwordTable->setRowCount(0);
 
-    QString username = btn->property("username").toString();
-    
-    btn->setText("copied");
-    QTimer::singleShot(2000, this, [this, btn]() {
-        btn->setText("Copy User");
-    });
-
-    QGuiApplication::clipboard()->setText(username);
-
-}
-
-void DashboardPage::onCopyPassword()
-{
-    auto* btn = qobject_cast<QPushButton*>(sender());
-    if (!btn)
-        return;
-
-    int passwordId = btn->property("passwordId").toInt();
-
-    auto entry = m_passwordRepo.fetchById(UserSession::instance().currentUser().id(), passwordId);
-
-    btn->setText("copied");
-    QTimer::singleShot(2000, this, [this, btn]() {
-        btn->setText("Copy Pass");
-        });
-
-    if (!entry.has_value()) {
-        qDebug() << "password with given id not found : " << passwordId;
-        return;
-    }
-    QGuiApplication::clipboard()->setText(entry.value().password());
-
-}
-
-void DashboardPage::onDeletePassword()
-{
-    auto* btn = qobject_cast<QPushButton*>(sender());
-    if (!btn)
-        return;
-
-    int passwordId = btn->property("passwordId").toInt();
-
-    const auto reply = QMessageBox::question(
-        this,
-        "Delete Password",
-        "Are you sure you want to delete this password?",
-        QMessageBox::Yes | QMessageBox::No
-    );
-
-    if (reply == QMessageBox::Yes) {
-        m_passwordRepo.deletePasswordById(UserSession::instance().currentUser().id(), passwordId);
-        emit passwordDeleteSuccess();
+    for (const auto& entry : entries) {
+        addPasswordRow(entry);
     }
 }
 
-void DashboardPage::onEditPassword() {
+void DashboardPage::performSearch()
+{
+    auto user = UserSession::instance().currentUser();
 
-    auto* btn = qobject_cast<QPushButton*>(sender());
-    if (!btn)
-        return;
-    int passwordId = btn->property("passwordId").toInt();
-
-    auto entry = m_passwordRepo.fetchById(UserSession::instance().currentUser().id(), passwordId);
-
-    if (!entry.has_value()) {
-        qDebug() << "password with given id not found : " << passwordId;
+    if (!user.has_value()) {
         return;
     }
 
-    EditPasswordDialog dialog(entry.value(), this);
+    int userId = user->id();
+    const QString searchText = m_ui->searchLineEdit->text().trimmed();
 
-    connect(&dialog, &EditPasswordDialog::passwordUpdate,
-        this, &DashboardPage::onPasswordUpdate);
+    if (searchText.isEmpty()) {
+        loadPasswords();
+        return;
+    }
 
-    dialog.exec();
+    const auto passwordList =
+        m_passwordRepo.searchPasswords(userId, searchText);
+
+    if (passwordList.isEmpty()) {
+        setViewState(ViewState::NoResults, searchText);
+        return;
+    }
+
+    setViewState(ViewState::Passwords);
+    renderPasswords(passwordList);
 }
 
 void DashboardPage::onPasswordUpdate(const PasswordEntry& entry) {
 
-    int userId = UserSession::instance().currentUser().id();
+    auto user = UserSession::instance().currentUser();
+
+    if (!user.has_value()) {
+        return;
+    }
+    
+    int userId = user->id();
 
     bool isUpdated = m_passwordRepo.updatePassword(userId, entry);
 
@@ -227,33 +200,135 @@ void DashboardPage::onSearchTextChanged()
     m_searchDebounceTimer->start();
 }
 
-void DashboardPage::onRefreshPasswordsClicked() 
+void DashboardPage::onRefreshPasswordsClicked()
 {
     onSearchTextChanged();
 }
 
-void DashboardPage::renderPasswords(const QVector<PasswordEntry>& entries) 
+void DashboardPage::setViewState(
+    ViewState state,
+    const QString& searchText
+)
 {
-    m_ui->passwordTable->setRowCount(0);
+    switch (state) {
+    case ViewState::Passwords:
+        m_ui->stackedWidget->setCurrentWidget(m_ui->pagePasswords);
+        break;
 
-    for (const auto& entry : entries) {
-        addPasswordRow(entry);
+    case ViewState::NoResults:
+        m_ui->noResultsLabel->setText(
+            QString("No results found for \"%1\"").arg(searchText)
+        );
+        m_ui->stackedWidget->setCurrentWidget(m_ui->pageNoResults);
+        break;
+
+    case ViewState::Empty:
+
+        m_ui->stackedWidget->setCurrentWidget(m_ui->pageEmpty);
+        break;
     }
 }
 
-void DashboardPage::performSearch()
+void DashboardPage::clearSearchText()
 {
-    const User& user = UserSession::instance().currentUser();
-    const int userId = user.id();
+    m_ui->searchLineEdit->clear();
+}
 
+std::optional<ButtonMappings> DashboardPage::resolvePasswordIdFromSender() const
+{
+    auto* btn = qobject_cast<QPushButton*>(sender());
+    if (!btn)
+        return std::nullopt;
 
-    QString searchText = m_ui->searchLineEdit->text();
-    qDebug() << "search requested : " << searchText;
-    if (searchText.isEmpty()) {
-        loadPasswords();
+    const int id = m_buttonToPasswordId.value(btn, -1);
+    if (id < 0)
+        return std::nullopt;
+
+    return ButtonMappings{ btn, id };
+}
+
+void DashboardPage::onCopyPassword()
+{
+    std::optional<ButtonMappings> btnMapping = resolvePasswordIdFromSender();
+    if (!btnMapping)
+        return;
+
+    auto entry = m_passwordRepo.fetchById(btnMapping->passwordId);
+    if (!entry.has_value()) {
+        qDebug() << "Password not found:" << btnMapping->passwordId;
         return;
     }
 
-    const auto passwordList = m_passwordRepo.searchPasswords(userId, searchText);
-    renderPasswords(passwordList);
+    auto* btn = btnMapping->button;
+
+    btn->setText("Copied");
+    QTimer::singleShot(2000, this, [btn]() {
+        if (btn)
+            btn->setText("Copy Pass");
+        });
+
+    QGuiApplication::clipboard()->setText(entry->password());
 }
+
+void DashboardPage::onDeletePassword()
+{
+    std::optional<ButtonMappings> btnMapping = resolvePasswordIdFromSender();
+    if (!btnMapping)
+        return;
+
+    const auto reply = QMessageBox::question(
+        this,
+        "Delete Password",
+        "Are you sure you want to delete this password?",
+        QMessageBox::Yes | QMessageBox::No
+    );
+
+    if (reply != QMessageBox::Yes)
+        return;
+
+    m_passwordRepo.deletePasswordById(btnMapping->passwordId);
+    emit passwordDeleteSuccess();
+}
+
+void DashboardPage::onEditPassword()
+{
+    std::optional<ButtonMappings> btnMapping = resolvePasswordIdFromSender();
+    if (!btnMapping)
+        return;
+
+    auto entry = m_passwordRepo.fetchById(btnMapping->passwordId);
+    if (!entry.has_value()) {
+        qDebug() << "Password not found:" << btnMapping->passwordId;
+        return;
+    }
+
+    EditPasswordDialog dialog(entry.value(), this);
+
+    connect(&dialog, &EditPasswordDialog::passwordUpdate,
+        this, &DashboardPage::onPasswordUpdate);
+
+    dialog.exec();
+}
+
+void DashboardPage::onCopyUsername()
+{
+    std::optional<ButtonMappings> btnMapping = resolvePasswordIdFromSender();
+    if (!btnMapping)
+        return;
+
+    auto entry = m_passwordRepo.fetchById(btnMapping->passwordId);
+    if (!entry.has_value()) {
+        qDebug() << "Username not found for:" << btnMapping->passwordId;
+        return;
+    }
+
+    auto* btn = btnMapping->button;
+
+    btn->setText("copied");
+    QTimer::singleShot(2000, this, [this, btn]() {
+        btn->setText("Copy User");
+        });
+
+    QGuiApplication::clipboard()->setText(entry->username());
+}
+  

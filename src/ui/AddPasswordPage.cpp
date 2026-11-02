@@ -39,8 +39,11 @@ void AddPasswordPage::onPasswordSaveClicked() {
     }
 
     // get the current user
-    const User& user = UserSession::instance().currentUser();
-    const int userId = user.id();
+    auto user = UserSession::instance().currentUser();
+    if (!user.has_value()) {
+        return;
+    }
+    const int userId = user->id();
 
     // here id parameter is dummy
     PasswordEntry entry(
@@ -54,12 +57,12 @@ void AddPasswordPage::onPasswordSaveClicked() {
     bool success = repo.addPassword(userId, entry);
 
     if (!success) {
-        qDebug() << "failed to save password for user:" << user.username();
+        qDebug() << "failed to save password for user:" << user->username();
         showMessage("failed to save password for user", Error);
         return;
     }
 
-    qDebug() << "Password saved for user:" << user.username();
+    qDebug() << "Password saved for user:" << user->username();
     showMessage("Password Saved Successfully", Success);
     clearform();
 	emit passwordSaveSuccess();
