@@ -25,6 +25,7 @@ file(GLOB_RECURSE PROJECT_SOURCES
     mainwindow.h
     mainwindow.ui
     resources/Resource.qrc
+    resources/app.rc
 )
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})

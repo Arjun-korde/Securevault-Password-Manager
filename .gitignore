@@ -4,25 +4,58 @@
 *.suo
 *.VC.db
 *.VC.opendb
+*.aps
+*.ncb
+*.sdf
+*.ipch
+ipch/
+.vscode/
+.idea/
 
 # CMake
 build/
 out/
+cmake-build-*/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+.cache/
 
-# MSVC
+# MSVC / build output
 x64/
 Win32/
+Debug/
+Release/
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.exe
+*.dll
+*.res
 
 # Qt
 *.qrc.depends
+*_autogen/
 moc_*.cpp
+moc_*.h
+qrc_*.cpp
 ui_*.h
+*.qmlc
+*.jsc
+.qtcreator/
+.qmake.stash
+*.pro.user*
+*.autosave
 
 # Logs / runtime artifacts
 *.log
 
 # OS
 Thumbs.db
+desktop.ini
+.DS_Store

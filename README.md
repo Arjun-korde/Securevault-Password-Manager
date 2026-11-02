@@ -21,7 +21,7 @@ A native Windows desktop password manager written in C++17 with Qt 6 Widgets. Cr
 - Add, edit and delete saved credentials (domain, username, password)
 - Debounced live search across domain and username
 - One-click copy of a username or password to the clipboard
-- Change master password and delete account from the Settings page
+- Delete account from the Settings page (a change-master-password dialog exists but is not wired up yet, see [Known Limitations](#known-limitations))
 - Per-user data isolation (all queries are scoped by `user_id`)
 - Automatic creation of the application database and tables on first run
 
@@ -32,7 +32,7 @@ A native Windows desktop password manager written in C++17 with Qt 6 Widgets. Cr
 | Language    | C++17                                        |
 | UI          | Qt 6 Widgets (Qt Designer `.ui` files)       |
 | Database    | PostgreSQL via Qt SQL (`QPSQL` driver)       |
-| Encryption  | AES-256-CBC through Windows CNG (`bcrypt`)   |
+| Encryption  | AES-256-CBC and PBKDF2-HMAC-SHA256 through Windows CNG (`bcrypt`) |
 | Build       | CMake (3.16+), Ninja, MSVC 2022              |
 | Platform    | Windows 10/11 x64                            |
 
@@ -60,8 +60,8 @@ UI (src/ui)  ->  Repositories (src/database)  ->  PostgreSQL
 
 ## Security Design
 
-1. **Authentication:** the master password is salted (random 16 bytes) and hashed with iterated SHA-256. Only the hash and salt are stored.
-2. **Encryption key:** a separate random salt is combined with the master password and hashed to a 256-bit key. The key lives only in memory for the duration of the session.
+1. **Authentication:** the master password is salted (random 16 bytes) and hashed with PBKDF2-HMAC-SHA256 (200,000 iterations, 256-bit output). Only the hash and salt are stored.
+2. **Encryption key:** a separate random 16-byte salt and the master password are run through PBKDF2-HMAC-SHA256 (150,000 iterations) to derive a 256-bit key. The key lives only in memory for the duration of the session.
 3. **Encryption:** each saved password is encrypted with AES-256 in CBC mode using a fresh random 16-byte IV, stored next to the ciphertext.
 4. **Isolation:** the master password and encryption key are never written to the database.
 
@@ -121,29 +121,28 @@ cmake --build --preset <preset-name>
     |-- app/                    UserSession
     |-- database/               DatabaseManager, UserRepository, PasswordRepository
     |-- models/                 User, PasswordEntry
-    |-- security/               CryptoManager, KeyDerivation, PasswordHasher, SecurityConfig
-    |-- ui/                     Pages, dialogs and .ui forms
-    `-- utils/                  Input validation helpers
+    |-- security/               CryptoManager, CryptoUtils, KeyDerivation, PasswordHasher, SecurityConfig
+    `-- ui/                     Pages, dialogs and .ui forms
 ```
 
 ## Known Limitations
 
 Please read these before relying on the app:
 
-- Password hashing and key derivation use a plain iterated SHA-256 loop, not a memory-hard KDF such as PBKDF2, Argon2 or scrypt.
+- PBKDF2 is not memory-hard; Argon2 or scrypt would resist GPU attacks better.
 - AES-CBC provides confidentiality but no integrity check; an authenticated mode (AES-GCM) would be stronger.
-- `CryptoManager` does not yet check the status codes returned by Windows CNG calls.
 - Database credentials are hard-coded in source.
-- Changing the master password must re-encrypt all stored entries with the new key; verify this behaviour before using it on data you care about.
+- Changing the master password is not implemented: the dialog only logs its input. Once implemented, it must re-encrypt all stored entries with the new key.
 - The code uses Windows CNG, so it only builds on Windows.
 
 ## Roadmap
 
-- [ ] Replace the SHA-256 loops with PBKDF2 or Argon2
+- [x] Replace the SHA-256 loops with PBKDF2
+- [ ] Move to Argon2 (or another memory-hard KDF)
 - [ ] Move to AES-256-GCM
-- [ ] Error handling for all crypto calls
+- [x] Error handling for crypto calls
 - [ ] Load database settings from environment variables or a config file
-- [ ] Re-encrypt vault when the master password changes
+- [ ] Implement change master password and re-encrypt the vault
 - [ ] Auto-lock on inactivity and clipboard auto-clear
 - [ ] Unit tests for the security and repository layers
 - [ ] Password generator
