@@ -153,15 +153,6 @@ std::optional<PasswordEntry> PasswordRepository::findByDomain(int userId, const 
         key
     );
 
-    QByteArray key = UserSession::instance().encryptionKey();
-
-    QByteArray decrypted =
-        CryptoManager::decrypt(
-            query.value("encrypted_password").toByteArray(),
-            query.value("iv").toByteArray(),
-            key
-        );
-
     return PasswordEntry(
         query.value("id").toInt(),
         query.value("domain").toString(),

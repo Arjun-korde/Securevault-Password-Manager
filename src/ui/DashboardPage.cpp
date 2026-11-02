@@ -253,7 +253,11 @@ void DashboardPage::onCopyPassword()
     if (!btnMapping)
         return;
 
-    auto entry = m_passwordRepo.fetchById(btnMapping->passwordId);
+    auto user = UserSession::instance().currentUser();
+    if (!user.has_value())
+        return;
+
+    auto entry = m_passwordRepo.fetchById(user->id(), btnMapping->passwordId);
     if (!entry.has_value()) {
         qDebug() << "Password not found:" << btnMapping->passwordId;
         return;
@@ -286,7 +290,11 @@ void DashboardPage::onDeletePassword()
     if (reply != QMessageBox::Yes)
         return;
 
-    m_passwordRepo.deletePasswordById(btnMapping->passwordId);
+    auto user = UserSession::instance().currentUser();
+    if (!user.has_value())
+        return;
+
+    m_passwordRepo.deletePasswordById(user->id(), btnMapping->passwordId);
     emit passwordDeleteSuccess();
 }
 
@@ -296,7 +304,11 @@ void DashboardPage::onEditPassword()
     if (!btnMapping)
         return;
 
-    auto entry = m_passwordRepo.fetchById(btnMapping->passwordId);
+    auto user = UserSession::instance().currentUser();
+    if (!user.has_value())
+        return;
+
+    auto entry = m_passwordRepo.fetchById(user->id(), btnMapping->passwordId);
     if (!entry.has_value()) {
         qDebug() << "Password not found:" << btnMapping->passwordId;
         return;
@@ -316,7 +328,11 @@ void DashboardPage::onCopyUsername()
     if (!btnMapping)
         return;
 
-    auto entry = m_passwordRepo.fetchById(btnMapping->passwordId);
+    auto user = UserSession::instance().currentUser();
+    if (!user.has_value())
+        return;
+
+    auto entry = m_passwordRepo.fetchById(user->id(), btnMapping->passwordId);
     if (!entry.has_value()) {
         qDebug() << "Username not found for:" << btnMapping->passwordId;
         return;
@@ -331,4 +347,4 @@ void DashboardPage::onCopyUsername()
 
     QGuiApplication::clipboard()->setText(entry->username());
 }
-  
+  
