@@ -7,13 +7,13 @@ class PasswordRepository
 {
 public:
     bool addPassword(int userId, const PasswordEntry& entry);
-    bool deletePasswordById(int passwordId);
+    bool deletePasswordById(int userId, int passwordId);
     bool updatePassword(int userId, const PasswordEntry& entry);
 
     QVector<PasswordEntry> fetchPasswords(int userId);
     QVector<PasswordEntry> searchPasswords(int userId, const QString& searchText);
 
-    std::optional<PasswordEntry> fetchById(int passwordId);
+    std::optional<PasswordEntry> fetchById(int userId, int passwordId);
     std::optional<PasswordEntry> findByDomain(int userId, const QString& domain);
 
 private: 

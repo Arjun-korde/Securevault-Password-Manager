@@ -8,7 +8,7 @@
 static QString APP_DB_NAME = "aesdb";
 static QString DB_HOST = "localhost";
 static QString DB_USER = "postgres";
-static QString DB_PASS = "postgres";
+static QString DB_PASS = "root";
 static int     DB_PORT = 5432;
 
 DatabaseManager& DatabaseManager::instance()
@@ -148,7 +148,7 @@ bool DatabaseManager::createTablesIfNotExists()
 
     // create passwords table
     if(!query.exec(createPasswordsTable)) {
-        qDebug() << "error while creating users table :"
+        qDebug() << "error while creating passwords table :"
             << query.lastError().text();
         return false;
     }

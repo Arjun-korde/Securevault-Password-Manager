@@ -150,7 +150,7 @@ void DashboardPage::onCopyPassword()
 
     int passwordId = btn->property("passwordId").toInt();
 
-    auto entry = m_passwordRepo.fetchById(passwordId);
+    auto entry = m_passwordRepo.fetchById(UserSession::instance().currentUser().id(), passwordId);
 
     btn->setText("copied");
     QTimer::singleShot(2000, this, [this, btn]() {
@@ -181,7 +181,7 @@ void DashboardPage::onDeletePassword()
     );
 
     if (reply == QMessageBox::Yes) {
-        m_passwordRepo.deletePasswordById(passwordId);
+        m_passwordRepo.deletePasswordById(UserSession::instance().currentUser().id(), passwordId);
         emit passwordDeleteSuccess();
     }
 }
@@ -193,7 +193,7 @@ void DashboardPage::onEditPassword() {
         return;
     int passwordId = btn->property("passwordId").toInt();
 
-    auto entry = m_passwordRepo.fetchById(passwordId);
+    auto entry = m_passwordRepo.fetchById(UserSession::instance().currentUser().id(), passwordId);
 
     if (!entry.has_value()) {
         qDebug() << "password with given id not found : " << passwordId;

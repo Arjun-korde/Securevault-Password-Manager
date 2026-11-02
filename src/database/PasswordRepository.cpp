@@ -33,14 +33,15 @@ bool PasswordRepository::addPassword(int userId, const PasswordEntry& entry)
     return true;
 }
 
-std::optional<PasswordEntry> PasswordRepository::fetchById(int passwordId)
+std::optional<PasswordEntry> PasswordRepository::fetchById(int userId, int passwordId)
 {
     QSqlQuery query(DatabaseManager::instance().database());
     query.prepare(R"(
         SELECT id, domain, username, encrypted_password, iv
-        FROM passwords WHERE id = :passwordId
+        FROM passwords WHERE id = :passwordId AND user_id = :user_id
     )");
     query.bindValue(":passwordId", passwordId);
+    query.bindValue(":user_id", userId);
 
     if (!query.exec() || !query.next()) {
         qDebug() << "error occured while fetching the password : " << query.lastError();
@@ -64,11 +65,12 @@ std::optional<PasswordEntry> PasswordRepository::fetchById(int passwordId)
     );
 }
 
-bool PasswordRepository::deletePasswordById(int passwordId)
+bool PasswordRepository::deletePasswordById(int userId, int passwordId)
 {
     QSqlQuery query(DatabaseManager::instance().database());
-    query.prepare("DELETE FROM passwords WHERE id = :passwordId");
+    query.prepare("DELETE FROM passwords WHERE id = :passwordId AND user_id = :user_id");
     query.bindValue(":passwordId", passwordId);
+    query.bindValue(":user_id", userId);
 
     if (!query.exec()) {
         qDebug() <<"error occured while deleting the password : " << query.lastError();
@@ -114,7 +116,7 @@ bool PasswordRepository::updatePassword(int userId, const PasswordEntry& entry)
 
     
     if (query.numRowsAffected() != 1) {
-        qDebug() << "while updating password more than 1 rows affedcted : "
+        qDebug() << "update password affected unexpected number of rows : "
             << query.numRowsAffected()
             << "rows (expected 1)";
         return false;
@@ -128,7 +130,7 @@ std::optional<PasswordEntry> PasswordRepository::findByDomain(int userId, const 
     QSqlQuery query(DatabaseManager::instance().database());
 
     query.prepare(R"(
-        SELECT id, domain, username, password
+        SELECT id, domain, username, encrypted_password, iv
         FROM passwords
         WHERE user_id = :user_id
           AND domain = :domain
@@ -147,11 +149,20 @@ std::optional<PasswordEntry> PasswordRepository::findByDomain(int userId, const 
         return std::nullopt;
     }
 
+    QByteArray key = UserSession::instance().encryptionKey();
+
+    QByteArray decrypted =
+        CryptoManager::decrypt(
+            query.value("encrypted_password").toByteArray(),
+            query.value("iv").toByteArray(),
+            key
+        );
+
     return PasswordEntry(
         query.value("id").toInt(),
         query.value("domain").toString(),
         query.value("username").toString(),
-        query.value("password").toString()
+        QString::fromUtf8(decrypted)
     );
 }
 
